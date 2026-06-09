@@ -11,7 +11,7 @@ use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::layout::{Alignment, Constraint, Layout, Margin, Rect};
 use ratatui::style::{Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, List, ListItem, ListState, Paragraph};
+use ratatui::widgets::{List, ListItem, ListState, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
 
 use crate::ui::{self, ACCENT, AQUA, BAD, DIM, OK, TEXT, WARN};
@@ -460,11 +460,9 @@ impl App {
     // ---- drawing -----------------------------------------------------------
 
     fn draw(&self, f: &mut Frame) {
-        // paint the Everforest base background across the whole terminal
-        let full = f.area();
-        f.render_widget(Block::default().style(Style::default().bg(ui::BG)), full);
-
-        let area = full.inner(Margin {
+        // transparent: we set no background, so the terminal paints one uniform
+        // colour and box-drawing borders connect cleanly (no per-cell bg seams)
+        let area = f.area().inner(Margin {
             horizontal: 2,
             vertical: 1,
         });

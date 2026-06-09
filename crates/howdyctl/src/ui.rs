@@ -6,7 +6,11 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders};
 
 // ── Everforest Dark (medium) ────────────────────────────────────────────────
+// The UI is transparent (no background fill), so BG/SURFACE are kept only for
+// reference / in case backgrounds are re-enabled.
+#[allow(dead_code)]
 pub const BG: Color = Color::Rgb(0x2d, 0x35, 0x3b); // base background
+#[allow(dead_code)]
 pub const SURFACE: Color = Color::Rgb(0x34, 0x3f, 0x44); // panels / overlays
 pub const TEXT: Color = Color::Rgb(0xd3, 0xc6, 0xaa); // primary cream text
 pub const DIM: Color = Color::Rgb(0x85, 0x92, 0x89); // labels / secondary
@@ -36,8 +40,7 @@ pub fn panel(title: &str, focused: bool) -> Block<'_> {
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .border_style(Style::default().fg(border))
-        // a slightly lighter surface than the base background, for depth
-        .style(Style::default().bg(SURFACE))
+        // transparent fill — no background, so borders render as unbroken lines
         .title(Span::styled(
             format!(" {title} "),
             Style::default()

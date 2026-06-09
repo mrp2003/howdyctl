@@ -8,6 +8,8 @@ Set Width 1000
 Set Height 640
 Set Padding 24
 Set TypingSpeed 60ms
+# Everforest Dark (medium) terminal theme — the UI itself is transparent
+Set Theme { "background": "#2d353b", "foreground": "#d3c6aa", "cursor": "#d3c6aa", "selection": "#3d484d", "black": "#343f44", "red": "#e67e80", "green": "#a7c080", "yellow": "#dbbc7f", "blue": "#7fbbb3", "magenta": "#d699b6", "cyan": "#83c092", "white": "#d3c6aa", "brightBlack": "#4f585e", "brightRed": "#e67e80", "brightGreen": "#a7c080", "brightYellow": "#dbbc7f", "brightBlue": "#7fbbb3", "brightMagenta": "#d699b6", "brightCyan": "#83c092", "brightWhite": "#d3c6aa" }
 
 Hide
 Type "./target/release/howdyctl --demo"
