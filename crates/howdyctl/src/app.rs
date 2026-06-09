@@ -898,11 +898,12 @@ impl App {
     }
 }
 
-/// Trim a kernel v4l2 card name down to its meaningful tail, e.g.
-/// `"ASUS FHD webcam: ASUS IR camera"` → `"ASUS IR camera"`.
+/// Trim a kernel v4l2 card name to its product prefix (before the colon), e.g.
+/// `"ASUS FHD webcam: ASUS IR camera"` → `"ASUS FHD webcam"`. The kernel often
+/// truncates the part after the colon, so the prefix is the cleanest full name.
 fn tidy_name(name: &str) -> &str {
-    match name.rsplit_once(": ") {
-        Some((_, tail)) if !tail.trim().is_empty() => tail.trim(),
+    match name.split_once(": ") {
+        Some((head, _)) if !head.trim().is_empty() => head.trim(),
         _ => name.trim(),
     }
 }
@@ -1004,13 +1005,13 @@ mod tests {
     }
 
     #[test]
-    fn tidy_name_takes_meaningful_tail() {
+    fn tidy_name_takes_product_prefix() {
         assert_eq!(
             tidy_name("ASUS FHD webcam: ASUS IR camera"),
-            "ASUS IR camera"
+            "ASUS FHD webcam"
         );
         assert_eq!(tidy_name("Integrated Camera"), "Integrated Camera");
-        assert_eq!(tidy_name("Foo: "), "Foo:"); // empty tail → keep whole (trimmed)
+        assert_eq!(tidy_name(": tail only"), ": tail only"); // empty head → keep whole
     }
 
     #[test]
