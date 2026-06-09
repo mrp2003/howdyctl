@@ -1,0 +1,18 @@
+[package]
+name = "howdy"
+description = "A small, dependency-light Rust library to inspect and drive a Howdy face-authentication install: cameras, config, face models, recognition tests and health checks."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+keywords = ["howdy", "face", "auth", "pam", "v4l2"]
+categories = ["api-bindings", "authentication"]
+readme = "../../README.md"
+
+[dependencies]
+anyhow.workspace = true
+libc.workspace = true
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

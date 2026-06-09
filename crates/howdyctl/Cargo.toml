@@ -1,0 +1,23 @@
+[package]
+name = "howdyctl"
+description = "A fast, refined ratatui TUI + CLI to manage Howdy face authentication on Linux: cameras, face models, a live match-distance tuner and a health doctor."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+keywords = ["tui", "ratatui", "howdy", "face", "pam"]
+categories = ["command-line-utilities", "authentication"]
+readme = "../../README.md"
+
+[[bin]]
+name = "howdyctl"
+path = "src/main.rs"
+
+[dependencies]
+howdy.workspace = true
+anyhow.workspace = true
+libc.workspace = true
+ratatui = "0.29"
+clap = { version = "4", features = ["derive"] }

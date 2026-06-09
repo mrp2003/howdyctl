@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = ["crates/howdy", "crates/howdyctl"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/mrp2003/howdyctl"
+authors = ["mrp2003"]
+rust-version = "1.74"
+
+[workspace.dependencies]
+howdy = { path = "crates/howdy", version = "0.1.0" }
+anyhow = "1"
+libc = "0.2"
+
+[profile.release]
+strip = true
+lto = "thin"
