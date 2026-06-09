@@ -25,7 +25,7 @@ Status today (v0.1.0):
 - [ ] Non-blocking test (spinner + cancel) so the UI doesn't freeze during a scan.
 
 ## 2. Models
-- [ ] **Inline label entry** when enrolling from the TUI (currently auto-labelled).
+- [x] **Inline label entry** when enrolling from the TUI.
 - [ ] Per-model **test** (which model matched, and at what distance).
 - [ ] Rename models; show enrollment thumbnail if snapshots are on.
 - [ ] Clear-all with a confirm step in the TUI.
@@ -67,7 +67,6 @@ Status today (v0.1.0):
 ---
 
 ## Quick wins (do these first)
-1. Inline label entry on enroll
-2. Editable timeout/dark_threshold sliders in the Test/Config view
-3. Non-blocking test with a spinner
-4. Publish to crates.io + an AUR package
+1. Editable timeout/dark_threshold sliders in the Test/Config view
+2. Non-blocking test with a spinner
+3. Publish to crates.io + an AUR package

@@ -20,11 +20,15 @@ Sleep 1s
 Down
 Sleep 1.2s
 
-# Models tab
+# Models tab — enroll with an inline label
 Tab
-Sleep 1.4s
-Down
-Sleep 1s
+Sleep 1.2s
+Type "a"
+Sleep 600ms
+Type "Work laptop"
+Sleep 1.3s
+Escape
+Sleep 700ms
 
 # Test tab — the live match-distance gauge
 Tab

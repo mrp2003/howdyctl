@@ -47,6 +47,8 @@ struct App {
     tab: Tab,
     quit: bool,
     status: String,
+    /// `Some(buffer)` while the user is typing a label for a new model.
+    enrolling: Option<String>,
 
     cameras: Vec<Camera>,
     cam_sel: usize,
@@ -72,6 +74,7 @@ impl App {
             tab: Tab::Cameras,
             quit: false,
             status: "ready".into(),
+            enrolling: None,
             cameras: Vec::new(),
             cam_sel: 0,
             models: Vec::new(),
@@ -189,6 +192,11 @@ impl App {
     }
 
     fn on_key(&mut self, code: KeyCode, terminal: &mut DefaultTerminal) {
+        // While typing a model label, the keyboard belongs to the text field.
+        if self.enrolling.is_some() {
+            self.on_label_key(code, terminal);
+            return;
+        }
         match code {
             KeyCode::Char('q') | KeyCode::Esc => self.quit = true,
             KeyCode::Tab | KeyCode::Right => self.cycle_tab(1),
@@ -211,7 +219,7 @@ impl App {
                 }
             }
             Tab::Models => match code {
-                KeyCode::Char('a') => self.enroll(terminal),
+                KeyCode::Char('a') => self.begin_enroll(),
                 KeyCode::Char('d') | KeyCode::Delete => self.delete_model(terminal),
                 _ => {}
             },
@@ -301,17 +309,55 @@ impl App {
         }
     }
 
-    fn enroll(&mut self, terminal: &mut DefaultTerminal) {
+    /// Start the inline label prompt for a new model.
+    fn begin_enroll(&mut self) {
+        self.enrolling = Some(String::new());
+        self.status = "type a label, Enter to enroll (empty = default), Esc to cancel".into();
+    }
+
+    /// Keystrokes while the label field is active.
+    fn on_label_key(&mut self, code: KeyCode, terminal: &mut DefaultTerminal) {
+        match code {
+            KeyCode::Esc => {
+                self.enrolling = None;
+                self.status = "enrollment cancelled".into();
+            }
+            KeyCode::Enter => {
+                let label = self.enrolling.take().unwrap_or_default();
+                self.do_enroll(terminal, label.trim().to_string());
+            }
+            KeyCode::Backspace => {
+                if let Some(buf) = self.enrolling.as_mut() {
+                    buf.pop();
+                }
+            }
+            KeyCode::Char(c) => {
+                if let Some(buf) = self.enrolling.as_mut() {
+                    buf.push(c);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Run the (privileged) enrollment, passing `label` if non-empty.
+    fn do_enroll(&mut self, terminal: &mut DefaultTerminal, label: String) {
         if self.guard_demo() {
             return;
         }
         let user = self.user.clone();
-        let ok = self.privileged(terminal, &["--user", &user, "add"], true);
+        let mut args = vec!["--user", &user, "add"];
+        if !label.is_empty() {
+            args.push(&label);
+        }
+        let ok = self.privileged(terminal, &args, true);
         self.reload_models();
-        self.status = if ok {
+        self.status = if !ok {
+            "enrollment cancelled or failed".into()
+        } else if label.is_empty() {
             "enrolled a new model".into()
         } else {
-            "enrollment cancelled or failed".into()
+            format!("enrolled '{label}'")
         };
     }
 
@@ -650,16 +696,36 @@ impl App {
     }
 
     fn draw_status(&self, f: &mut Frame, area: Rect) {
-        f.render_widget(
-            Paragraph::new(Line::from(vec![
+        let line = if let Some(buf) = &self.enrolling {
+            // active label-entry field, with a block cursor
+            Line::from(vec![
+                Span::styled(" label ▸ ", Style::default().fg(ACCENT).bold()),
+                Span::styled(buf.clone(), Style::default().fg(ACCENT)),
+                Span::styled(
+                    "▏",
+                    Style::default()
+                        .fg(ACCENT)
+                        .add_modifier(Modifier::SLOW_BLINK),
+                ),
+            ])
+        } else {
+            Line::from(vec![
                 Span::styled(" • ", Style::default().fg(ACCENT)),
                 Span::styled(self.status.clone(), Style::default().fg(DIM)),
-            ])),
-            area,
-        );
+            ])
+        };
+        f.render_widget(Paragraph::new(line), area);
     }
 
     fn draw_footer(&self, f: &mut Frame, area: Rect) {
+        if self.enrolling.is_some() {
+            let hints = &[("type", "label"), ("↵", "enroll"), ("Esc", "cancel")];
+            f.render_widget(
+                Paragraph::new(ui::footer(hints)).alignment(Alignment::Center),
+                area,
+            );
+            return;
+        }
         let hints: &[(&str, &str)] = match self.tab {
             Tab::Cameras => &[
                 ("↑↓", "select"),
@@ -785,5 +851,20 @@ mod tests {
         let screen = render(&app);
         assert!(screen.contains("/dev/video2"));
         assert!(screen.contains("IR"));
+    }
+
+    #[test]
+    fn enroll_label_field_renders_what_you_type() {
+        let mut app = App::new(true, "demo".into());
+        app.load();
+        app.tab = Tab::Models;
+        app.begin_enroll();
+        if let Some(buf) = app.enrolling.as_mut() {
+            buf.push_str("Work laptop");
+        }
+        let screen = render(&app);
+        assert!(screen.contains("label"), "label prompt missing");
+        assert!(screen.contains("Work laptop"), "typed text missing");
+        assert!(screen.contains("enroll"), "footer hint missing");
     }
 }
