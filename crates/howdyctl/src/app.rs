@@ -512,11 +512,10 @@ impl App {
             horizontal: 2,
             vertical: 1,
         });
-        let [header, _gap, main, status, help] = Layout::vertical([
+        let [header, _gap, main, bottom] = Layout::vertical([
             Constraint::Length(1),
             Constraint::Length(1),
             Constraint::Min(3),
-            Constraint::Length(1),
             Constraint::Length(1),
         ])
         .areas(area);
@@ -558,8 +557,7 @@ impl App {
             Focus::Content => ui::dim_rect(buf, menu, UNFOCUSED_FADE),
         }
 
-        self.draw_status(f, status);
-        self.draw_help(f, help);
+        self.draw_bottom(f, bottom);
     }
 
     fn draw_header(&self, f: &mut Frame, area: Rect) {
@@ -621,9 +619,22 @@ impl App {
             Constraint::Min(0),
         ])
         .areas(area);
+
+        // column widths, with generous spacing; NAME sizes to the longest full name
+        let dev_w = 18;
+        let name_w = self
+            .cameras
+            .iter()
+            .map(|c| tidy_name(&c.name).chars().count())
+            .max()
+            .unwrap_or(4)
+            .max(4)
+            + 4;
+        let type_w = 8;
+
         f.render_widget(
             Paragraph::new(ui::header(format!(
-                "  {:<14}{:<18}{:<7}{}",
+                "  {:<dev_w$}{:<name_w$}{:<type_w$}{}",
                 "DEVICE", "NAME", "TYPE", "STATUS"
             ))),
             head,
@@ -647,14 +658,14 @@ impl App {
                 let content = Line::from(vec![
                     Span::styled(dot, Style::default().fg(ACCENT)),
                     Span::styled(
-                        format!("{:<14}", c.path.display()),
+                        format!("{:<dev_w$}", c.path.display()),
                         Style::default().fg(TEXT),
                     ),
                     Span::styled(
-                        format!("{}  ", fit(tidy_name(&c.name), 16)),
+                        format!("{:<name_w$}", tidy_name(&c.name)),
                         Style::default().fg(DIM),
                     ),
-                    Span::styled(format!("{kind:<7}"), Style::default().fg(kind_color)),
+                    Span::styled(format!("{kind:<type_w$}"), Style::default().fg(kind_color)),
                     tag,
                 ]);
                 // a trailing blank line gives breathing room between rows
@@ -808,9 +819,9 @@ impl App {
         f.render_widget(Paragraph::new(lines), inner);
     }
 
-    fn draw_status(&self, f: &mut Frame, area: Rect) {
-        let line = if let Some(buf) = &self.enrolling {
-            // active label-entry field, with a block cursor
+    /// The status text (left side of the bottom bar).
+    fn status_line(&self) -> Line<'static> {
+        if let Some(buf) = &self.enrolling {
             Line::from(vec![
                 Span::styled(" label ▸ ", Style::default().fg(ACCENT).bold()),
                 Span::styled(buf.clone(), Style::default().fg(TEXT)),
@@ -826,12 +837,12 @@ impl App {
                 Span::styled(" • ", Style::default().fg(ACCENT)),
                 Span::styled(self.status.clone(), Style::default().fg(DIM)),
             ])
-        };
-        f.render_widget(Paragraph::new(line), area);
+        }
     }
 
-    fn draw_help(&self, f: &mut Frame, area: Rect) {
-        let hints: &[(&str, &str)] = if self.enrolling.is_some() {
+    /// The context-sensitive keybinding hints (centre of the bottom bar).
+    fn help_hints(&self) -> &'static [(&'static str, &'static str)] {
+        if self.enrolling.is_some() {
             &[("type", "label"), ("↵", "enroll"), ("Esc", "cancel")]
         } else if self.focus == Focus::Menu {
             &[
@@ -869,11 +880,21 @@ impl App {
                     ("q", "quit"),
                 ],
             }
-        };
-        f.render_widget(
-            Paragraph::new(ui::help_bar(hints)).alignment(Alignment::Center),
-            area,
-        );
+        }
+    }
+
+    /// Bottom bar: status text left-aligned, help hints centred, on one line.
+    fn draw_bottom(&self, f: &mut Frame, area: Rect) {
+        let status = self.status_line();
+        let help = ui::help_bar(self.help_hints());
+        let w = area.width as usize;
+        let center = w.saturating_sub(help.width()) / 2;
+        let pad = center.saturating_sub(status.width());
+
+        let mut spans = status.spans;
+        spans.push(Span::raw(" ".repeat(pad)));
+        spans.extend(help.spans);
+        f.render_widget(Paragraph::new(Line::from(spans)), area);
     }
 }
 
@@ -883,17 +904,6 @@ fn tidy_name(name: &str) -> &str {
     match name.rsplit_once(": ") {
         Some((_, tail)) if !tail.trim().is_empty() => tail.trim(),
         _ => name.trim(),
-    }
-}
-
-/// Fit `s` into exactly `width` columns: left-pad if short, truncate with `…` if long.
-fn fit(s: &str, width: usize) -> String {
-    let chars: Vec<char> = s.chars().collect();
-    if chars.len() <= width {
-        format!("{s:<width$}")
-    } else {
-        let cut: String = chars[..width.saturating_sub(1)].iter().collect();
-        format!("{cut}…")
     }
 }
 
@@ -1001,14 +1011,6 @@ mod tests {
         );
         assert_eq!(tidy_name("Integrated Camera"), "Integrated Camera");
         assert_eq!(tidy_name("Foo: "), "Foo:"); // empty tail → keep whole (trimmed)
-    }
-
-    #[test]
-    fn fit_pads_and_truncates() {
-        assert_eq!(fit("abc", 6), "abc   ");
-        assert_eq!(fit("abcdef", 6), "abcdef");
-        assert_eq!(fit("ASUS FHD webcam: ASUS IR camera", 10), "ASUS FHD …");
-        assert_eq!(fit("ASUS FHD …", 10).chars().count(), 10);
     }
 
     #[test]
