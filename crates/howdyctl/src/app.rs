@@ -36,15 +36,32 @@ impl Tab {
             Tab::Doctor => "Doctor",
         }
     }
+    /// Title shown on the content panel.
+    fn title(self) -> &'static str {
+        match self {
+            Tab::Cameras => "Cameras",
+            Tab::Models => "Face models",
+            Tab::Test => "Recognition test",
+            Tab::Doctor => "Doctor",
+        }
+    }
     fn index(self) -> usize {
         Self::ALL.iter().position(|&t| t == self).unwrap_or(0)
     }
+}
+
+/// Which pane currently has the keyboard.
+#[derive(Clone, Copy, PartialEq)]
+enum Focus {
+    Menu,
+    Content,
 }
 
 struct App {
     demo: bool,
     user: String,
     tab: Tab,
+    focus: Focus,
     quit: bool,
     status: String,
     /// `Some(buffer)` while the user is typing a label for a new model.
@@ -72,6 +89,7 @@ impl App {
             demo,
             user,
             tab: Tab::Cameras,
+            focus: Focus::Menu,
             quit: false,
             status: "ready".into(),
             enrolling: None,
@@ -198,20 +216,51 @@ impl App {
             return;
         }
         match code {
-            KeyCode::Char('q') | KeyCode::Esc => self.quit = true,
-            KeyCode::Tab | KeyCode::Right => self.cycle_tab(1),
-            KeyCode::BackTab | KeyCode::Left => self.cycle_tab(-1),
-            KeyCode::Up => self.move_sel(-1),
-            KeyCode::Down => self.move_sel(1),
+            KeyCode::Char('q') => self.quit = true,
+            KeyCode::Esc => {
+                if self.focus == Focus::Content {
+                    self.focus = Focus::Menu;
+                } else {
+                    self.quit = true;
+                }
+            }
+            KeyCode::Tab | KeyCode::BackTab => self.toggle_focus(),
             KeyCode::Char('r') => {
                 self.load();
                 self.status = "refreshed".into();
             }
-            other => self.on_tab_key(other, terminal),
+            // navigation depends on which pane has focus
+            KeyCode::Up if self.focus == Focus::Menu => self.menu_step(-1),
+            KeyCode::Down if self.focus == Focus::Menu => self.menu_step(1),
+            KeyCode::Up => self.move_sel(-1),
+            KeyCode::Down => self.move_sel(1),
+            KeyCode::Right | KeyCode::Char('l') if self.focus == Focus::Menu => {
+                self.focus = Focus::Content;
+            }
+            KeyCode::Left | KeyCode::Char('h') if self.focus == Focus::Content => {
+                self.focus = Focus::Menu;
+            }
+            KeyCode::Enter if self.focus == Focus::Menu => self.focus = Focus::Content,
+            other if self.focus == Focus::Content => self.on_content_key(other, terminal),
+            _ => {}
         }
     }
 
-    fn on_tab_key(&mut self, code: KeyCode, terminal: &mut DefaultTerminal) {
+    fn toggle_focus(&mut self) {
+        self.focus = match self.focus {
+            Focus::Menu => Focus::Content,
+            Focus::Content => Focus::Menu,
+        };
+    }
+
+    /// Move the menu selection (the active section), wrapping; content follows live.
+    fn menu_step(&mut self, delta: i32) {
+        let n = Tab::ALL.len() as i32;
+        let i = (self.tab.index() as i32 + delta).rem_euclid(n) as usize;
+        self.tab = Tab::ALL[i];
+    }
+
+    fn on_content_key(&mut self, code: KeyCode, terminal: &mut DefaultTerminal) {
         match self.tab {
             Tab::Cameras => {
                 if code == KeyCode::Enter {
@@ -240,12 +289,6 @@ impl App {
                 _ => {}
             },
         }
-    }
-
-    fn cycle_tab(&mut self, delta: i32) {
-        let n = Tab::ALL.len() as i32;
-        let i = (self.tab.index() as i32 + delta).rem_euclid(n) as usize;
-        self.tab = Tab::ALL[i];
     }
 
     fn move_sel(&mut self, delta: i32) {
@@ -460,16 +503,14 @@ impl App {
     // ---- drawing -----------------------------------------------------------
 
     fn draw(&self, f: &mut Frame) {
-        // transparent: we set no background, so the terminal paints one uniform
-        // colour and box-drawing borders connect cleanly (no per-cell bg seams)
+        // transparent: no background fill, so the terminal paints one uniform colour
         let area = f.area().inner(Margin {
             horizontal: 2,
             vertical: 1,
         });
-        let [header, _gap, tabs, body, status, help] = Layout::vertical([
+        let [header, _gap, main, status, help] = Layout::vertical([
             Constraint::Length(1),
             Constraint::Length(1),
-            Constraint::Length(2),
             Constraint::Min(3),
             Constraint::Length(1),
             Constraint::Length(1),
@@ -477,13 +518,30 @@ impl App {
         .areas(area);
 
         self.draw_header(f, header);
-        self.draw_tabs(f, tabs);
+
+        // left Menu box + right Content box (with a 1-col gap between)
+        let [menu, _gap2, content] = Layout::horizontal([
+            Constraint::Length(18),
+            Constraint::Length(1),
+            Constraint::Min(0),
+        ])
+        .areas(main);
+
+        self.draw_menu(f, menu);
+
+        let block = ui::panel(self.tab.title(), self.focus == Focus::Content);
+        let cinner = block.inner(content).inner(Margin {
+            horizontal: 1,
+            vertical: 1,
+        });
+        f.render_widget(block, content);
         match self.tab {
-            Tab::Cameras => self.draw_cameras(f, body),
-            Tab::Models => self.draw_models(f, body),
-            Tab::Test => self.draw_test(f, body),
-            Tab::Doctor => self.draw_doctor(f, body),
+            Tab::Cameras => self.draw_cameras(f, cinner),
+            Tab::Models => self.draw_models(f, cinner),
+            Tab::Test => self.draw_test(f, cinner),
+            Tab::Doctor => self.draw_doctor(f, cinner),
         }
+
         self.draw_status(f, status);
         self.draw_help(f, help);
     }
@@ -509,26 +567,35 @@ impl App {
         );
     }
 
-    fn draw_tabs(&self, f: &mut Frame, area: Rect) {
-        let names: Vec<&str> = Tab::ALL.iter().map(|t| t.label()).collect();
-        let (row, underline) = ui::tab_bar(&names, self.tab.index());
-        let [r1, r2] = Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas(area);
-        f.render_widget(Paragraph::new(row), r1);
-        f.render_widget(Paragraph::new(underline), r2);
-    }
-
-    fn draw_cameras(&self, f: &mut Frame, area: Rect) {
-        let block = ui::panel("Cameras", true);
+    fn draw_menu(&self, f: &mut Frame, area: Rect) {
+        let block = ui::panel("Menu", self.focus == Focus::Menu);
         let inner = block.inner(area).inner(Margin {
             horizontal: 1,
             vertical: 1,
         });
         f.render_widget(block, area);
+
+        let items: Vec<ListItem> = Tab::ALL
+            .iter()
+            .map(|t| {
+                ListItem::new(vec![
+                    Line::from(Span::styled(
+                        format!(" {}", t.label()),
+                        Style::default().fg(TEXT),
+                    )),
+                    Line::from(""), // spacing between menu items
+                ])
+            })
+            .collect();
+        let mut state = ListState::default();
+        state.select(Some(self.tab.index()));
+        let list = List::new(items).highlight_style(ui::selection());
+        f.render_stateful_widget(list, inner, &mut state);
+    }
+
+    fn draw_cameras(&self, f: &mut Frame, area: Rect) {
         if self.cameras.is_empty() {
-            f.render_widget(
-                Paragraph::new("no /dev/video* devices found").fg(DIM),
-                inner,
-            );
+            f.render_widget(Paragraph::new("no /dev/video* devices found").fg(DIM), area);
             return;
         }
 
@@ -537,7 +604,7 @@ impl App {
             Constraint::Length(1),
             Constraint::Min(0),
         ])
-        .areas(inner);
+        .areas(area);
         f.render_widget(
             Paragraph::new(ui::header(format!(
                 "  {:<14}{:<18}{:<7}{}",
@@ -585,16 +652,10 @@ impl App {
     }
 
     fn draw_models(&self, f: &mut Frame, area: Rect) {
-        let block = ui::panel("Face models", true);
-        let inner = block.inner(area).inner(Margin {
-            horizontal: 1,
-            vertical: 1,
-        });
-        f.render_widget(block, area);
         if self.models.is_empty() {
             f.render_widget(
                 Paragraph::new("no models enrolled — press  a  to add one").fg(DIM),
-                inner,
+                area,
             );
             return;
         }
@@ -604,7 +665,7 @@ impl App {
             Constraint::Length(1),
             Constraint::Min(0),
         ])
-        .areas(inner);
+        .areas(area);
         f.render_widget(
             Paragraph::new(ui::header(format!(
                 "  {:<5}{:<20}{}",
@@ -635,12 +696,7 @@ impl App {
     }
 
     fn draw_test(&self, f: &mut Frame, area: Rect) {
-        let block = ui::panel("Recognition test", true);
-        let inner = block.inner(area).inner(Margin {
-            horizontal: 1,
-            vertical: 1,
-        });
-        f.render_widget(block, area);
+        let inner = area;
 
         let pending = (self.pending_certainty - self.certainty).abs() > 1e-6;
         let thr_line = if pending {
@@ -716,12 +772,7 @@ impl App {
     }
 
     fn draw_doctor(&self, f: &mut Frame, area: Rect) {
-        let block = ui::panel("Doctor", true);
-        let inner = block.inner(area).inner(Margin {
-            horizontal: 1,
-            vertical: 0,
-        });
-        f.render_widget(block, area);
+        let inner = area;
         let lines: Vec<Line> = self
             .checks
             .iter()
@@ -766,30 +817,41 @@ impl App {
     fn draw_help(&self, f: &mut Frame, area: Rect) {
         let hints: &[(&str, &str)] = if self.enrolling.is_some() {
             &[("type", "label"), ("↵", "enroll"), ("Esc", "cancel")]
+        } else if self.focus == Focus::Menu {
+            &[
+                ("↑↓", "section"),
+                ("⇥/→", "open"),
+                ("r", "refresh"),
+                ("q", "quit"),
+            ]
         } else {
             match self.tab {
                 Tab::Cameras => &[
                     ("↑↓", "select"),
                     ("↵", "set active"),
-                    ("⇥", "tab"),
-                    ("r", "refresh"),
+                    ("⇥/←", "menu"),
                     ("q", "quit"),
                 ],
                 Tab::Models => &[
                     ("↑↓", "select"),
                     ("a", "add"),
                     ("d", "delete"),
-                    ("⇥", "tab"),
+                    ("⇥/←", "menu"),
                     ("q", "quit"),
                 ],
                 Tab::Test => &[
                     ("↵", "run"),
                     ("± ", "threshold"),
                     ("s", "save"),
-                    ("e", "detail"),
+                    ("⇥/←", "menu"),
                     ("q", "quit"),
                 ],
-                Tab::Doctor => &[("↵", "re-check"), ("f", "fix"), ("⇥", "tab"), ("q", "quit")],
+                Tab::Doctor => &[
+                    ("↵", "re-check"),
+                    ("f", "fix"),
+                    ("⇥/←", "menu"),
+                    ("q", "quit"),
+                ],
             }
         };
         f.render_widget(Paragraph::new(ui::help_bar(hints)), area);

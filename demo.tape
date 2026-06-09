@@ -17,14 +17,34 @@ Enter
 Sleep 1.2s
 Show
 
-# Cameras tab — IR vs RGB, the active one marked
-Sleep 1s
+# Menu focused — arrow down through the sections, content updates live
+Sleep 1.2s
 Down
-Sleep 1.2s
+Sleep 1.4s
+Down
+Sleep 1.6s
+Down
+Sleep 1.8s
+Up
+Up
+Up
+Sleep 1s
 
-# Models tab — enroll with an inline label
+# enter the content pane (Cameras), move the selection
+Right
+Sleep 800ms
+Down
+Sleep 900ms
+Down
+Sleep 900ms
+
+# back to the menu, over to Models, enroll with an inline label
 Tab
-Sleep 1.2s
+Sleep 700ms
+Down
+Sleep 900ms
+Right
+Sleep 700ms
 Type "a"
 Sleep 600ms
 Type "Work laptop"
@@ -32,20 +52,5 @@ Sleep 1.3s
 Escape
 Sleep 700ms
 
-# Test tab — the live match-distance gauge
-Tab
-Sleep 1.6s
-Type "+++"
-Sleep 1s
-Type "---"
-Sleep 1.2s
-
-# Doctor tab — health checks
-Tab
-Sleep 2.2s
-
-# back around to Cameras
-Tab
-Sleep 1s
 Type "q"
 Sleep 600ms

@@ -49,42 +49,6 @@ pub fn panel(title: &str, focused: bool) -> Block<'_> {
         ))
 }
 
-/// The slim tab row plus an underline beneath the active tab (rendered into a
-/// 2-line area). `active` is the index into `names`.
-pub fn tab_bar(names: &[&str], active: usize) -> (Line<'static>, Line<'static>) {
-    let mut spans = Vec::new();
-    let mut underline_cols: Option<(usize, usize)> = None;
-    let mut col = 2usize; // leading indent
-    spans.push(Span::raw("  "));
-    for (i, name) in names.iter().enumerate() {
-        if i > 0 {
-            spans.push(Span::raw("   "));
-            col += 3;
-        }
-        if i == active {
-            underline_cols = Some((col, name.len()));
-            spans.push(Span::styled(
-                name.to_string(),
-                Style::default().fg(ACCENT).bold(),
-            ));
-        } else {
-            spans.push(Span::styled(name.to_string(), Style::default().fg(DIM)));
-        }
-        col += name.len();
-    }
-
-    let underline = match underline_cols {
-        Some((start, len)) => {
-            let mut s = String::new();
-            s.push_str(&" ".repeat(start));
-            s.push_str(&"─".repeat(len));
-            Line::from(Span::styled(s, Style::default().fg(ACCENT)))
-        }
-        None => Line::from(""),
-    };
-    (Line::from(spans), underline)
-}
-
 /// A footer of `key`/`description` hints, e.g. ` ↑↓ move   q quit `.
 pub fn help_bar(hints: &[(&str, &str)]) -> Line<'static> {
     let mut spans = vec![Span::raw(" ")];
