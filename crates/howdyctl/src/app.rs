@@ -460,19 +460,17 @@ impl App {
     // ---- drawing -----------------------------------------------------------
 
     fn draw(&self, f: &mut Frame) {
-        // Borderless: structure comes from horizontal rules only (verticals gap on
-        // some terminals, e.g. cosmic-term). Transparent — no background fill.
+        // transparent: we set no background, so the terminal paints one uniform
+        // colour and box-drawing borders connect cleanly (no per-cell bg seams)
         let area = f.area().inner(Margin {
             horizontal: 2,
             vertical: 1,
         });
-        let [header, _gap, tabs, rule_top, body, rule_bot, status, help] = Layout::vertical([
+        let [header, _gap, tabs, body, status, help] = Layout::vertical([
             Constraint::Length(1),
             Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Length(1),
+            Constraint::Length(2),
             Constraint::Min(3),
-            Constraint::Length(1),
             Constraint::Length(1),
             Constraint::Length(1),
         ])
@@ -480,18 +478,12 @@ impl App {
 
         self.draw_header(f, header);
         self.draw_tabs(f, tabs);
-        f.render_widget(Paragraph::new(ui::rule(rule_top.width)), rule_top);
-        let body = body.inner(Margin {
-            horizontal: 1,
-            vertical: 0,
-        });
         match self.tab {
             Tab::Cameras => self.draw_cameras(f, body),
             Tab::Models => self.draw_models(f, body),
             Tab::Test => self.draw_test(f, body),
             Tab::Doctor => self.draw_doctor(f, body),
         }
-        f.render_widget(Paragraph::new(ui::rule(rule_bot.width)), rule_bot);
         self.draw_status(f, status);
         self.draw_help(f, help);
     }
@@ -519,12 +511,24 @@ impl App {
 
     fn draw_tabs(&self, f: &mut Frame, area: Rect) {
         let names: Vec<&str> = Tab::ALL.iter().map(|t| t.label()).collect();
-        f.render_widget(Paragraph::new(ui::tab_bar(&names, self.tab.index())), area);
+        let (row, underline) = ui::tab_bar(&names, self.tab.index());
+        let [r1, r2] = Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas(area);
+        f.render_widget(Paragraph::new(row), r1);
+        f.render_widget(Paragraph::new(underline), r2);
     }
 
     fn draw_cameras(&self, f: &mut Frame, area: Rect) {
+        let block = ui::panel("Cameras", true);
+        let inner = block.inner(area).inner(Margin {
+            horizontal: 1,
+            vertical: 1,
+        });
+        f.render_widget(block, area);
         if self.cameras.is_empty() {
-            f.render_widget(Paragraph::new("no /dev/video* devices found").fg(DIM), area);
+            f.render_widget(
+                Paragraph::new("no /dev/video* devices found").fg(DIM),
+                inner,
+            );
             return;
         }
 
@@ -533,7 +537,7 @@ impl App {
             Constraint::Length(1),
             Constraint::Min(0),
         ])
-        .areas(area);
+        .areas(inner);
         f.render_widget(
             Paragraph::new(ui::header(format!(
                 "  {:<14}{:<18}{:<7}{}",
@@ -581,10 +585,16 @@ impl App {
     }
 
     fn draw_models(&self, f: &mut Frame, area: Rect) {
+        let block = ui::panel("Face models", true);
+        let inner = block.inner(area).inner(Margin {
+            horizontal: 1,
+            vertical: 1,
+        });
+        f.render_widget(block, area);
         if self.models.is_empty() {
             f.render_widget(
                 Paragraph::new("no models enrolled — press  a  to add one").fg(DIM),
-                area,
+                inner,
             );
             return;
         }
@@ -594,7 +604,7 @@ impl App {
             Constraint::Length(1),
             Constraint::Min(0),
         ])
-        .areas(area);
+        .areas(inner);
         f.render_widget(
             Paragraph::new(ui::header(format!(
                 "  {:<5}{:<20}{}",
@@ -625,10 +635,12 @@ impl App {
     }
 
     fn draw_test(&self, f: &mut Frame, area: Rect) {
-        let inner = area.inner(Margin {
-            horizontal: 0,
+        let block = ui::panel("Recognition test", true);
+        let inner = block.inner(area).inner(Margin {
+            horizontal: 1,
             vertical: 1,
         });
+        f.render_widget(block, area);
 
         let pending = (self.pending_certainty - self.certainty).abs() > 1e-6;
         let thr_line = if pending {
@@ -704,10 +716,12 @@ impl App {
     }
 
     fn draw_doctor(&self, f: &mut Frame, area: Rect) {
-        let inner = area.inner(Margin {
-            horizontal: 0,
-            vertical: 1,
+        let block = ui::panel("Doctor", true);
+        let inner = block.inner(area).inner(Margin {
+            horizontal: 1,
+            vertical: 0,
         });
+        f.render_widget(block, area);
         let lines: Vec<Line> = self
             .checks
             .iter()
