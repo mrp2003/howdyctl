@@ -521,22 +521,40 @@ impl App {
 
     fn draw_cameras(&self, f: &mut Frame, area: Rect) {
         let block = ui::panel("Cameras", true);
+        let inner = block.inner(area).inner(Margin {
+            horizontal: 1,
+            vertical: 1,
+        });
+        f.render_widget(block, area);
         if self.cameras.is_empty() {
             f.render_widget(
-                Paragraph::new("no /dev/video* devices found")
-                    .fg(DIM)
-                    .block(block),
-                area,
+                Paragraph::new("no /dev/video* devices found").fg(DIM),
+                inner,
             );
             return;
         }
+
+        let [head, _gap, body] = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Min(0),
+        ])
+        .areas(inner);
+        f.render_widget(
+            Paragraph::new(ui::header(format!(
+                "  {:<14}{:<18}{:<7}{}",
+                "DEVICE", "NAME", "TYPE", "STATUS"
+            ))),
+            head,
+        );
+
         let items: Vec<ListItem> = self
             .cameras
             .iter()
             .map(|c| {
                 let active = c.path.to_string_lossy() == self.device_path;
                 let dot = if active { "● " } else { "  " };
-                let kind = if c.is_ir { "IR " } else { "RGB" };
+                let kind = if c.is_ir { "IR" } else { "RGB" };
                 let kind_color = if c.is_ir { AQUA } else { DIM };
                 let tag = if active {
                     Span::styled("active", Style::default().fg(ACCENT).bold())
@@ -545,57 +563,77 @@ impl App {
                 } else {
                     Span::raw("")
                 };
-                ListItem::new(Line::from(vec![
+                let content = Line::from(vec![
                     Span::styled(dot, Style::default().fg(ACCENT)),
                     Span::styled(
-                        format!("{:<13}", c.path.display()),
+                        format!("{:<14}", c.path.display()),
                         Style::default().fg(TEXT),
                     ),
-                    Span::styled(format!("{}  ", fit(&c.name, 26)), Style::default().fg(DIM)),
-                    Span::styled(format!("{kind}   "), Style::default().fg(kind_color)),
+                    Span::styled(
+                        format!("{}  ", fit(tidy_name(&c.name), 16)),
+                        Style::default().fg(DIM),
+                    ),
+                    Span::styled(format!("{kind:<7}"), Style::default().fg(kind_color)),
                     tag,
-                ]))
+                ]);
+                // a trailing blank line gives breathing room between rows
+                ListItem::new(vec![content, Line::from("")])
             })
             .collect();
         let mut state = ListState::default();
         state.select(Some(self.cam_sel));
-        let list = List::new(items)
-            .block(block)
-            .highlight_style(ui::selection());
-        f.render_stateful_widget(list, area, &mut state);
+        let list = List::new(items).highlight_style(ui::selection());
+        f.render_stateful_widget(list, body, &mut state);
     }
 
     fn draw_models(&self, f: &mut Frame, area: Rect) {
         let block = ui::panel("Face models", true);
+        let inner = block.inner(area).inner(Margin {
+            horizontal: 1,
+            vertical: 1,
+        });
+        f.render_widget(block, area);
         if self.models.is_empty() {
             f.render_widget(
-                Paragraph::new("no models enrolled — press  a  to add one")
-                    .fg(DIM)
-                    .block(block),
-                area,
+                Paragraph::new("no models enrolled — press  a  to add one").fg(DIM),
+                inner,
             );
             return;
         }
+
+        let [head, _gap, body] = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Min(0),
+        ])
+        .areas(inner);
+        f.render_widget(
+            Paragraph::new(ui::header(format!(
+                "  {:<5}{:<20}{}",
+                "ID", "ENROLLED", "LABEL"
+            ))),
+            head,
+        );
+
         let items: Vec<ListItem> = self
             .models
             .iter()
             .map(|m| {
-                ListItem::new(Line::from(vec![
-                    Span::styled(format!("{:<3}", m.id), Style::default().fg(DIM)),
+                let content = Line::from(vec![
+                    Span::styled(format!("  {:<5}", m.id), Style::default().fg(DIM)),
                     Span::styled(
-                        format!("{}   ", model::format_time(m.time)),
+                        format!("{:<20}", model::format_time(m.time)),
                         Style::default().fg(DIM),
                     ),
                     Span::styled(m.label.clone(), Style::default().fg(TEXT)),
-                ]))
+                ]);
+                ListItem::new(vec![content, Line::from("")])
             })
             .collect();
         let mut state = ListState::default();
         state.select(Some(self.model_sel));
-        let list = List::new(items)
-            .block(block)
-            .highlight_style(ui::selection());
-        f.render_stateful_widget(list, area, &mut state);
+        let list = List::new(items).highlight_style(ui::selection());
+        f.render_stateful_widget(list, body, &mut state);
     }
 
     fn draw_test(&self, f: &mut Frame, area: Rect) {
@@ -760,6 +798,15 @@ impl App {
     }
 }
 
+/// Trim a kernel v4l2 card name down to its meaningful tail, e.g.
+/// `"ASUS FHD webcam: ASUS IR camera"` → `"ASUS IR camera"`.
+fn tidy_name(name: &str) -> &str {
+    match name.rsplit_once(": ") {
+        Some((_, tail)) if !tail.trim().is_empty() => tail.trim(),
+        _ => name.trim(),
+    }
+}
+
 /// Fit `s` into exactly `width` columns: left-pad if short, truncate with `…` if long.
 fn fit(s: &str, width: usize) -> String {
     let chars: Vec<char> = s.chars().collect();
@@ -865,6 +912,16 @@ mod tests {
         let screen = render(&app);
         assert!(screen.contains("/dev/video2"));
         assert!(screen.contains("IR"));
+    }
+
+    #[test]
+    fn tidy_name_takes_meaningful_tail() {
+        assert_eq!(
+            tidy_name("ASUS FHD webcam: ASUS IR camera"),
+            "ASUS IR camera"
+        );
+        assert_eq!(tidy_name("Integrated Camera"), "Integrated Camera");
+        assert_eq!(tidy_name("Foo: "), "Foo:"); // empty tail → keep whole (trimmed)
     }
 
     #[test]

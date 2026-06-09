@@ -11,18 +11,22 @@ pub const SURFACE: Color = Color::Rgb(0x34, 0x3f, 0x44); // panels / overlays
 pub const TEXT: Color = Color::Rgb(0xd3, 0xc6, 0xaa); // primary cream text
 pub const DIM: Color = Color::Rgb(0x85, 0x92, 0x89); // labels / secondary
 pub const BORDER: Color = Color::Rgb(0x4f, 0x58, 0x5e); // unfocused borders
-pub const ACCENT: Color = Color::Rgb(0xa7, 0xc0, 0x80); // green — focus / selection
+pub const ACCENT: Color = Color::Rgb(0xa7, 0xc0, 0x80); // green — focus
+pub const SELECT: Color = Color::Rgb(0xc8, 0xd2, 0x7e); // green-yellow lime — selection
 pub const AQUA: Color = Color::Rgb(0x83, 0xc0, 0x92); // IR / secondary highlight
 pub const OK: Color = Color::Rgb(0xa7, 0xc0, 0x80); // green
 pub const WARN: Color = Color::Rgb(0xdb, 0xbc, 0x7f); // yellow
 pub const BAD: Color = Color::Rgb(0xe6, 0x7e, 0x80); // red
 
-/// Style for the selected row: a solid green bar with dark text.
+/// Style for the selected row: the text recolours to a green-yellow lime
+/// (no background bar) as the cursor moves.
 pub fn selection() -> Style {
-    Style::default()
-        .fg(BG)
-        .bg(ACCENT)
-        .add_modifier(Modifier::BOLD)
+    Style::default().fg(SELECT).add_modifier(Modifier::BOLD)
+}
+
+/// A dim, bold column-header line.
+pub fn header(text: String) -> Line<'static> {
+    Line::from(Span::styled(text, Style::default().fg(DIM).bold()))
 }
 
 /// A rounded block whose border is green when `focused`, dim otherwise.
