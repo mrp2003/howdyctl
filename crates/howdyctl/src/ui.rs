@@ -17,6 +17,7 @@ pub const BORDER: Color = Color::Rgb(0x4f, 0x58, 0x5e); // unfocused borders
 pub const ACCENT: Color = Color::Rgb(0xa7, 0xc0, 0x80); // green — focus
 pub const SELECT: Color = Color::Rgb(0xc8, 0xd2, 0x7e); // green-yellow lime — selection
 pub const AQUA: Color = Color::Rgb(0x83, 0xc0, 0x92); // IR / secondary highlight
+pub const BLUE: Color = Color::Rgb(0x7f, 0xbb, 0xb3); // banner gradient end
 pub const OK: Color = Color::Rgb(0xa7, 0xc0, 0x80); // green
 pub const WARN: Color = Color::Rgb(0xdb, 0xbc, 0x7f); // yellow
 pub const BAD: Color = Color::Rgb(0xe6, 0x7e, 0x80); // red
@@ -112,6 +113,15 @@ pub fn gauge(threshold: f64, distance: Option<f64>) -> Vec<Line<'static>> {
 /// (`t = 0.3` ≈ 70% opacity). Non-RGB colours pass through unchanged.
 pub fn fade(c: Color, t: f64) -> Color {
     lerp(c, BG, t)
+}
+
+/// Banner gradient: green → aqua → blue across `t` in 0..1.
+pub fn grad(t: f64) -> Color {
+    if t < 0.5 {
+        lerp(ACCENT, AQUA, t * 2.0)
+    } else {
+        lerp(AQUA, BLUE, (t - 0.5) * 2.0)
+    }
 }
 
 /// Fade every cell in `area` toward the background, dimming a whole panel (border

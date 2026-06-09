@@ -22,6 +22,12 @@ const TICK: Duration = Duration::from_millis(200);
 /// ~0.35 ≈ 65% opacity.
 const UNFOCUSED_FADE: f64 = 0.35;
 
+/// Big "howdyctl" wordmark (ANSI Shadow figlet font).
+const BANNER: &str = include_str!("banner.txt");
+
+/// A small Face-ID style bracket-face logo shown above the wordmark.
+const FACE: &[&str] = &["⌜       ⌝", "  ◠   ◠", "    ‿", "⌞       ⌟"];
+
 #[derive(Clone, Copy, PartialEq)]
 enum Tab {
     Cameras,
@@ -522,9 +528,9 @@ impl App {
 
         self.draw_header(f, header);
 
-        // the boxes occupy the bottom half of the page (top half left empty)
-        let [_top, boxes] =
-            Layout::vertical([Constraint::Fill(1), Constraint::Fill(1)]).areas(main);
+        // top half: the big wordmark; bottom half: the menu + content boxes
+        let [top, boxes] = Layout::vertical([Constraint::Fill(1), Constraint::Fill(1)]).areas(main);
+        self.draw_banner(f, top);
 
         // left Menu box + right Content box (with a 1-col gap between)
         let [menu, _gap2, content] = Layout::horizontal([
@@ -579,6 +585,61 @@ impl App {
                 .alignment(Alignment::Right),
             right,
         );
+    }
+
+    /// The big gradient wordmark + face logo, centred in the (otherwise empty) top half.
+    fn draw_banner(&self, f: &mut Frame, area: Rect) {
+        let mut lines: Vec<Line> = Vec::new();
+
+        // small Face-ID bracket logo, in aqua
+        for fl in FACE {
+            lines.push(Line::from(Span::styled(*fl, Style::default().fg(AQUA))));
+        }
+        lines.push(Line::from(""));
+
+        // the wordmark, with a green → aqua → blue gradient across its width
+        let width = BANNER
+            .lines()
+            .map(|l| l.chars().count())
+            .max()
+            .unwrap_or(1)
+            .max(2);
+        for line in BANNER.lines() {
+            let spans: Vec<Span> = line
+                .chars()
+                .enumerate()
+                .map(|(i, ch)| {
+                    if ch == ' ' {
+                        Span::raw(" ")
+                    } else {
+                        let base = ui::grad(i as f64 / (width - 1) as f64);
+                        // the block body is bright; the figlet "shadow" chars are dimmer
+                        let color = if ch == '█' {
+                            base
+                        } else {
+                            ui::fade(base, 0.5)
+                        };
+                        Span::styled(ch.to_string(), Style::default().fg(color))
+                    }
+                })
+                .collect();
+            lines.push(Line::from(spans));
+        }
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "face unlock for Howdy, managed",
+            Style::default().fg(DIM).italic(),
+        )));
+
+        // vertically centre the block within the top half
+        let h = lines.len() as u16;
+        let [_, mid, _] = Layout::vertical([
+            Constraint::Fill(1),
+            Constraint::Length(h.min(area.height)),
+            Constraint::Fill(1),
+        ])
+        .areas(area);
+        f.render_widget(Paragraph::new(lines).alignment(Alignment::Center), mid);
     }
 
     fn draw_menu(&self, f: &mut Frame, area: Rect) {
