@@ -18,6 +18,10 @@ use crate::ui::{self, ACCENT, AQUA, BAD, DIM, OK, TEXT, WARN};
 
 const TICK: Duration = Duration::from_millis(200);
 
+/// How far the unfocused pane is faded toward the background (0 = none, 1 = gone).
+/// ~0.35 ≈ 65% opacity.
+const UNFOCUSED_FADE: f64 = 0.35;
+
 #[derive(Clone, Copy, PartialEq)]
 enum Tab {
     Cameras,
@@ -529,7 +533,8 @@ impl App {
 
         self.draw_menu(f, menu);
 
-        let block = ui::panel(self.tab.title(), self.focus == Focus::Content);
+        // both panels keep a green border; the unfocused one is faded as a whole
+        let block = ui::panel(self.tab.title(), true);
         let cinner = block.inner(content).inner(Margin {
             horizontal: 1,
             vertical: 1,
@@ -540,6 +545,13 @@ impl App {
             Tab::Models => self.draw_models(f, cinner),
             Tab::Test => self.draw_test(f, cinner),
             Tab::Doctor => self.draw_doctor(f, cinner),
+        }
+
+        // fade whichever pane is not focused (border + content alike)
+        let buf = f.buffer_mut();
+        match self.focus {
+            Focus::Menu => ui::dim_rect(buf, content, UNFOCUSED_FADE),
+            Focus::Content => ui::dim_rect(buf, menu, UNFOCUSED_FADE),
         }
 
         self.draw_status(f, status);
@@ -568,7 +580,7 @@ impl App {
     }
 
     fn draw_menu(&self, f: &mut Frame, area: Rect) {
-        let block = ui::panel("Menu", self.focus == Focus::Menu);
+        let block = ui::panel("Menu", true);
         let inner = block.inner(area).inner(Margin {
             horizontal: 1,
             vertical: 1,

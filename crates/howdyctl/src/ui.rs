@@ -1,15 +1,14 @@
 //! Shared TUI styling and small widgets — a pythops-flavoured layout (slim tab row,
 //! a single focused panel with a coloured border, a quiet help line) themed with the
 //! **Everforest Dark (medium)** palette.
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders};
 
 // ── Everforest Dark (medium) ────────────────────────────────────────────────
-// The UI is transparent (no background fill), so BG/SURFACE are kept only for
-// reference / in case backgrounds are re-enabled.
-#[allow(dead_code)]
-pub const BG: Color = Color::Rgb(0x2d, 0x35, 0x3b); // base background
+pub const BG: Color = Color::Rgb(0x2d, 0x35, 0x3b); // base background (for fading)
 #[allow(dead_code)]
 pub const SURFACE: Color = Color::Rgb(0x34, 0x3f, 0x44); // panels / overlays
 pub const TEXT: Color = Color::Rgb(0xd3, 0xc6, 0xaa); // primary cream text
@@ -107,6 +106,25 @@ pub fn gauge(threshold: f64, distance: Option<f64>) -> Vec<Line<'static>> {
     ));
 
     vec![Line::from(bar_spans), marker_line]
+}
+
+/// Fade a colour toward the background — `t` is how much background to mix in
+/// (`t = 0.3` ≈ 70% opacity). Non-RGB colours pass through unchanged.
+pub fn fade(c: Color, t: f64) -> Color {
+    lerp(c, BG, t)
+}
+
+/// Fade every cell in `area` toward the background, dimming a whole panel (border
+/// and content alike) — used to de-emphasise the unfocused pane.
+pub fn dim_rect(buf: &mut Buffer, area: Rect, t: f64) {
+    for y in area.top()..area.bottom() {
+        for x in area.left()..area.right() {
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                let faded = fade(cell.fg, t);
+                cell.set_fg(faded);
+            }
+        }
+    }
 }
 
 /// Linear interpolation between two RGB colours.
