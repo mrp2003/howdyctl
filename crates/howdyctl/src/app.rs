@@ -551,7 +551,7 @@ impl App {
                         format!("{:<13}", c.path.display()),
                         Style::default().fg(TEXT),
                     ),
-                    Span::styled(format!("{:<24}", c.name), Style::default().fg(DIM)),
+                    Span::styled(format!("{}  ", fit(&c.name, 26)), Style::default().fg(DIM)),
                     Span::styled(format!("{kind}   "), Style::default().fg(kind_color)),
                     tag,
                 ]))
@@ -760,6 +760,17 @@ impl App {
     }
 }
 
+/// Fit `s` into exactly `width` columns: left-pad if short, truncate with `…` if long.
+fn fit(s: &str, width: usize) -> String {
+    let chars: Vec<char> = s.chars().collect();
+    if chars.len() <= width {
+        format!("{s:<width$}")
+    } else {
+        let cut: String = chars[..width.saturating_sub(1)].iter().collect();
+        format!("{cut}…")
+    }
+}
+
 fn doctor_demo() -> Vec<doctor::Check> {
     use howdy::doctor::Check;
     // Hand-built sample so `--demo` renders without touching the system.
@@ -854,6 +865,14 @@ mod tests {
         let screen = render(&app);
         assert!(screen.contains("/dev/video2"));
         assert!(screen.contains("IR"));
+    }
+
+    #[test]
+    fn fit_pads_and_truncates() {
+        assert_eq!(fit("abc", 6), "abc   ");
+        assert_eq!(fit("abcdef", 6), "abcdef");
+        assert_eq!(fit("ASUS FHD webcam: ASUS IR camera", 10), "ASUS FHD …");
+        assert_eq!(fit("ASUS FHD …", 10).chars().count(), 10);
     }
 
     #[test]
