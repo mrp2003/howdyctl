@@ -21,6 +21,7 @@ use std::path::PathBuf;
 pub mod camera;
 pub mod config;
 pub mod doctor;
+pub mod fix;
 mod ioctl;
 pub mod model;
 pub mod test;

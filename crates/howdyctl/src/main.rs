@@ -44,7 +44,11 @@ enum Cmd {
     /// Run a recognition test and print the result + match distance.
     Test,
     /// Run health checks on the Howdy install.
-    Doctor,
+    Doctor {
+        /// Apply automated repairs for fixable problems (needs admin).
+        #[arg(long)]
+        fix: bool,
+    },
     /// Point Howdy at a camera device, e.g. `set-camera /dev/video2` (needs admin).
     SetCamera {
         /// Path to a `/dev/video*` capture node.
@@ -122,14 +126,26 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
-        Some(Cmd::Doctor) => {
-            for c in doctor::run(&user) {
-                let mark = match c.status {
-                    doctor::Status::Ok => "[ ok ]",
-                    doctor::Status::Warn => "[warn]",
-                    doctor::Status::Fail => "[fail]",
-                };
-                println!("{mark} {:<26} {}", c.name, c.detail);
+        Some(Cmd::Doctor { fix }) => {
+            if fix {
+                priv_action(&sub_args("doctor", &["--fix".to_string()]), || {
+                    println!("Applying repairs:");
+                    for o in howdy::fix::repair() {
+                        let mark = if !o.ok {
+                            "[fail]"
+                        } else if o.changed {
+                            "[ fix]"
+                        } else {
+                            "[ ok ]"
+                        };
+                        println!("{mark} {:<26} {}", o.name, o.message);
+                    }
+                    println!("\nRe-checking:");
+                    print_checks(&user);
+                    Ok(())
+                })?
+            } else {
+                print_checks(&user);
             }
         }
 
@@ -199,6 +215,17 @@ where
     } else {
         let status = elevate::run(args)?;
         std::process::exit(status.code().unwrap_or(1));
+    }
+}
+
+fn print_checks(user: &str) {
+    for c in doctor::run(user) {
+        let mark = match c.status {
+            doctor::Status::Ok => "[ ok ]",
+            doctor::Status::Warn => "[warn]",
+            doctor::Status::Fail => "[fail]",
+        };
+        println!("{mark} {:<26} {}", c.name, c.detail);
     }
 }
 

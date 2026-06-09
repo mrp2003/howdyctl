@@ -9,7 +9,7 @@ Status today (v0.1.0):
 - Model list (reads the model JSON directly — no root) + enroll / delete via pkexec
 - Recognition Test view with a threshold gauge + match-distance margin
 - Doctor: dlib/opencv import, data files, `pam.py` py3-compat, dir traversal, PAM
-  wiring, camera, enrolled models
+  wiring, camera, enrolled models — plus `doctor --fix` to auto-repair
 - CLI for every action (`list`, `models`, `add`, `remove`, `clear`, `test`,
   `doctor`, `set-camera`, `certainty`, `timeout`)
 - `--demo` mode, install script, CI (fmt/clippy/test/build)
@@ -37,8 +37,9 @@ Status today (v0.1.0):
 - [ ] Surface and edit the `[snapshots]` settings (and a snapshots viewer).
 
 ## 4. Doctor & repair
-- [ ] **`howdyctl doctor --fix`**: apply the obvious repairs (chmod dirs traversable,
-      patch the `pam.py` Python-2 import, run `pam-auth-update`, fix `device_path`).
+- [x] **`howdyctl doctor --fix`**: apply the obvious repairs (chmod dirs traversable,
+      patch the `pam.py` Python-2 import, run `pam-auth-update`, fix `device_path`,
+      re-download model data). Idempotent.
 - [ ] Detect the orphaned-camera-lock situation and offer to free it.
 - [ ] Check `libpam-python` / `pam_python.so` presence and Python ABI match.
 - [ ] GDM/greeter login-screen wiring check.
@@ -66,8 +67,7 @@ Status today (v0.1.0):
 ---
 
 ## Quick wins (do these first)
-1. `doctor --fix` (huge value — automates everything we did by hand)
-2. Inline label entry on enroll
-3. Editable timeout/dark_threshold sliders in the Test/Config view
-4. Non-blocking test with a spinner
-5. Publish to crates.io + an AUR package
+1. Inline label entry on enroll
+2. Editable timeout/dark_threshold sliders in the Test/Config view
+3. Non-blocking test with a spinner
+4. Publish to crates.io + an AUR package

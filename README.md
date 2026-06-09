@@ -31,9 +31,10 @@ face unlock fiddlier than it should be. `howdyctl` puts all of that on one scree
   so listing needs no root)
 - 🎯 **Test & tune** — run a recognition check and see the **match distance against
   your threshold on a gauge**, so you stop guessing at `certainty`
-- 🩺 **Doctor** — checks the exact things that silently break Howdy: dlib/OpenCV
-  imports, model data files, a Python‑3‑safe `pam.py`, world-traversable directories,
-  PAM wiring, the configured camera, enrolled models
+- 🩺 **Doctor (with `--fix`)** — checks the exact things that silently break Howdy
+  (dlib/OpenCV imports, model data files, a Python‑3‑safe `pam.py`, world-traversable
+  directories, PAM wiring, the configured camera, enrolled models) — and `doctor --fix`
+  repairs the fixable ones for you
 - ⌨️ **TUI _and_ CLI** — a polished [ratatui](https://ratatui.rs) interface, plus
   `howdyctl test`, `howdyctl doctor`, `howdyctl set-camera /dev/video2`, … for scripts
 - 🔐 **No sudo for the whole app** — it runs as you and elevates only the few root-only
@@ -63,6 +64,7 @@ already has and elevates root-only actions (enroll, config edits) with `pkexec`.
 howdyctl                    # launch the TUI
 howdyctl --demo             # TUI with fake data — no Howdy or camera needed
 howdyctl doctor             # health-check the install
+howdyctl doctor --fix       # auto-repair the fixable problems (pops a pkexec prompt)
 howdyctl test               # one recognition attempt + match distance
 howdyctl list               # detected cameras (IR/RGB, capture/metadata)
 howdyctl models             # enrolled face models

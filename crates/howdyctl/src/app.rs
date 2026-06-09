@@ -223,12 +223,14 @@ impl App {
                 KeyCode::Char('e') => self.toggle_end_report(terminal),
                 _ => {}
             },
-            Tab::Doctor => {
-                if code == KeyCode::Enter {
+            Tab::Doctor => match code {
+                KeyCode::Enter => {
                     self.reload_doctor();
                     self.status = "re-ran checks".into();
                 }
-            }
+                KeyCode::Char('f') => self.run_fix(terminal),
+                _ => {}
+            },
         }
     }
 
@@ -339,6 +341,20 @@ impl App {
             self.reload_config();
             self.status = format!("certainty set to {val}");
         }
+    }
+
+    fn run_fix(&mut self, terminal: &mut DefaultTerminal) {
+        if self.guard_demo() {
+            return;
+        }
+        let user = self.user.clone();
+        let ok = self.privileged(terminal, &["--user", &user, "doctor", "--fix"], true);
+        self.reload_doctor();
+        self.status = if ok {
+            "ran doctor --fix".into()
+        } else {
+            "doctor --fix failed".into()
+        };
     }
 
     fn toggle_end_report(&mut self, terminal: &mut DefaultTerminal) {
@@ -666,12 +682,7 @@ impl App {
                 ("e", "detail"),
                 ("q", "quit"),
             ],
-            Tab::Doctor => &[
-                ("↵", "re-check"),
-                ("⇥", "tab"),
-                ("r", "refresh"),
-                ("q", "quit"),
-            ],
+            Tab::Doctor => &[("↵", "re-check"), ("f", "fix"), ("⇥", "tab"), ("q", "quit")],
         };
         f.render_widget(
             Paragraph::new(ui::footer(hints)).alignment(Alignment::Center),
