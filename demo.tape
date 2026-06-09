@@ -5,7 +5,7 @@ Output docs/demo.gif
 Set Shell bash
 Set FontSize 18
 Set Width 1000
-Set Height 640
+Set Height 800
 Set Padding 24
 Set TypingSpeed 60ms
 # Everforest Dark (medium) terminal theme — the UI itself is transparent

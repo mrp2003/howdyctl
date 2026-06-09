@@ -523,13 +523,17 @@ impl App {
 
         self.draw_header(f, header);
 
+        // the boxes occupy the bottom half of the page (top half left empty)
+        let [_top, boxes] =
+            Layout::vertical([Constraint::Fill(1), Constraint::Fill(1)]).areas(main);
+
         // left Menu box + right Content box (with a 1-col gap between)
         let [menu, _gap2, content] = Layout::horizontal([
             Constraint::Length(18),
             Constraint::Length(1),
             Constraint::Min(0),
         ])
-        .areas(main);
+        .areas(boxes);
 
         self.draw_menu(f, menu);
 
@@ -866,7 +870,10 @@ impl App {
                 ],
             }
         };
-        f.render_widget(Paragraph::new(ui::help_bar(hints)), area);
+        f.render_widget(
+            Paragraph::new(ui::help_bar(hints)).alignment(Alignment::Center),
+            area,
+        );
     }
 }
 
