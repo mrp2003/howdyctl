@@ -35,7 +35,8 @@ face unlock fiddlier than it should be. `howdyctl` puts all of that on one scree
   (dlib/OpenCV imports, model data files, a Python‑3‑safe `pam.py`, world-traversable
   directories, PAM wiring, the configured camera, enrolled models) — and `doctor --fix`
   repairs the fixable ones for you
-- ⌨️ **TUI _and_ CLI** — a polished [ratatui](https://ratatui.rs) interface, plus
+- ⌨️ **TUI _and_ CLI** — a polished, pythops-style [ratatui](https://ratatui.rs)
+  interface (themed with [Everforest](https://github.com/sainnhe/everforest)), plus
   `howdyctl test`, `howdyctl doctor`, `howdyctl set-camera /dev/video2`, … for scripts
 - 🔐 **No sudo for the whole app** — it runs as you and elevates only the few root-only
   actions with `pkexec`

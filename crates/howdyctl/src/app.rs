@@ -8,13 +8,13 @@ use howdy::test::{self, TestResult};
 use howdy::{camera, Camera};
 
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use ratatui::layout::{Alignment, Constraint, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Layout, Margin, Rect};
 use ratatui::style::{Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{List, ListItem, ListState, Paragraph};
+use ratatui::widgets::{Block, List, ListItem, ListState, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
 
-use crate::ui::{self, ACCENT, BAD, DIM, OK, WARN};
+use crate::ui::{self, ACCENT, AQUA, BAD, DIM, OK, TEXT, WARN};
 
 const TICK: Duration = Duration::from_millis(200);
 
@@ -460,17 +460,25 @@ impl App {
     // ---- drawing -----------------------------------------------------------
 
     fn draw(&self, f: &mut Frame) {
-        let area = ui::centered(f.area(), 76, 24);
-        let [logo, tabs, body, status, footer] = Layout::vertical([
-            Constraint::Length(4),
+        // paint the Everforest base background across the whole terminal
+        let full = f.area();
+        f.render_widget(Block::default().style(Style::default().bg(ui::BG)), full);
+
+        let area = full.inner(Margin {
+            horizontal: 2,
+            vertical: 1,
+        });
+        let [header, _gap, tabs, body, status, help] = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
             Constraint::Length(2),
-            Constraint::Min(6),
+            Constraint::Min(3),
             Constraint::Length(1),
             Constraint::Length(1),
         ])
         .areas(area);
 
-        self.draw_logo(f, logo);
+        self.draw_header(f, header);
         self.draw_tabs(f, tabs);
         match self.tab {
             Tab::Cameras => self.draw_cameras(f, body),
@@ -479,47 +487,40 @@ impl App {
             Tab::Doctor => self.draw_doctor(f, body),
         }
         self.draw_status(f, status);
-        self.draw_footer(f, footer);
+        self.draw_help(f, help);
     }
 
-    fn draw_logo(&self, f: &mut Frame, area: Rect) {
-        let subtitle = if self.demo {
-            format!(
-                "face unlock for Howdy · demo (no device) · user: {}",
-                self.user
-            )
+    fn draw_header(&self, f: &mut Frame, area: Rect) {
+        let [left, right] =
+            Layout::horizontal([Constraint::Min(0), Constraint::Length(22)]).areas(area);
+        let title = Line::from(vec![
+            Span::styled("◔‿◔", Style::default().fg(ACCENT)),
+            Span::styled("  howdyctl", Style::default().fg(ACCENT).bold()),
+        ]);
+        f.render_widget(Paragraph::new(title), left);
+
+        let who = if self.demo {
+            format!("user: {} · demo", self.user)
         } else {
-            format!("face unlock for Howdy · user: {}", self.user)
+            format!("user: {}", self.user)
         };
-        let lines = vec![
-            Line::from("[ ◔ ‿ ◔ ]").fg(ACCENT).bold(),
-            Line::from("howdyctl").fg(ACCENT).bold(),
-            Line::from(subtitle).fg(DIM).italic(),
-        ];
-        f.render_widget(Paragraph::new(lines).alignment(Alignment::Center), area);
-    }
-
-    fn draw_tabs(&self, f: &mut Frame, area: Rect) {
-        let mut spans = Vec::new();
-        for t in Tab::ALL {
-            let style = if t == self.tab {
-                Style::default()
-                    .fg(ACCENT)
-                    .add_modifier(Modifier::REVERSED | Modifier::BOLD)
-            } else {
-                Style::default().fg(DIM)
-            };
-            spans.push(Span::styled(format!("  {}  ", t.label()), style));
-            spans.push(Span::raw(" "));
-        }
         f.render_widget(
-            Paragraph::new(Line::from(spans)).alignment(Alignment::Center),
-            area,
+            Paragraph::new(Line::from(Span::styled(who, Style::default().fg(DIM))))
+                .alignment(Alignment::Right),
+            right,
         );
     }
 
+    fn draw_tabs(&self, f: &mut Frame, area: Rect) {
+        let names: Vec<&str> = Tab::ALL.iter().map(|t| t.label()).collect();
+        let (row, underline) = ui::tab_bar(&names, self.tab.index());
+        let [r1, r2] = Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas(area);
+        f.render_widget(Paragraph::new(row), r1);
+        f.render_widget(Paragraph::new(underline), r2);
+    }
+
     fn draw_cameras(&self, f: &mut Frame, area: Rect) {
-        let block = ui::titled("Cameras");
+        let block = ui::panel("Cameras", true);
         if self.cameras.is_empty() {
             f.render_widget(
                 Paragraph::new("no /dev/video* devices found")
@@ -536,18 +537,23 @@ impl App {
                 let active = c.path.to_string_lossy() == self.device_path;
                 let dot = if active { "● " } else { "  " };
                 let kind = if c.is_ir { "IR " } else { "RGB" };
-                let kind_color = if c.is_ir { OK } else { DIM };
-                let cap = if c.can_capture {
-                    Span::styled("capture", Style::default().fg(DIM))
+                let kind_color = if c.is_ir { AQUA } else { DIM };
+                let tag = if active {
+                    Span::styled("active", Style::default().fg(ACCENT).bold())
+                } else if !c.can_capture {
+                    Span::styled("meta", Style::default().fg(DIM))
                 } else {
-                    Span::styled("metadata", Style::default().fg(WARN))
+                    Span::raw("")
                 };
                 ListItem::new(Line::from(vec![
-                    Span::styled(dot, Style::default().fg(OK)),
-                    Span::styled(format!("{:<12}", c.path.display()), Style::default().bold()),
+                    Span::styled(dot, Style::default().fg(ACCENT)),
+                    Span::styled(
+                        format!("{:<13}", c.path.display()),
+                        Style::default().fg(TEXT),
+                    ),
                     Span::styled(format!("{:<24}", c.name), Style::default().fg(DIM)),
-                    Span::styled(format!("{kind}  "), Style::default().fg(kind_color)),
-                    cap,
+                    Span::styled(format!("{kind}   "), Style::default().fg(kind_color)),
+                    tag,
                 ]))
             })
             .collect();
@@ -555,13 +561,12 @@ impl App {
         state.select(Some(self.cam_sel));
         let list = List::new(items)
             .block(block)
-            .highlight_style(Style::default().fg(ACCENT).add_modifier(Modifier::REVERSED))
-            .highlight_symbol("› ");
+            .highlight_style(ui::selection());
         f.render_stateful_widget(list, area, &mut state);
     }
 
     fn draw_models(&self, f: &mut Frame, area: Rect) {
-        let block = ui::titled("Face models");
+        let block = ui::panel("Face models", true);
         if self.models.is_empty() {
             f.render_widget(
                 Paragraph::new("no models enrolled — press  a  to add one")
@@ -578,10 +583,10 @@ impl App {
                 ListItem::new(Line::from(vec![
                     Span::styled(format!("{:<3}", m.id), Style::default().fg(DIM)),
                     Span::styled(
-                        format!("{}  ", model::format_time(m.time)),
+                        format!("{}   ", model::format_time(m.time)),
                         Style::default().fg(DIM),
                     ),
-                    Span::styled(m.label.clone(), Style::default().bold()),
+                    Span::styled(m.label.clone(), Style::default().fg(TEXT)),
                 ]))
             })
             .collect();
@@ -589,21 +594,23 @@ impl App {
         state.select(Some(self.model_sel));
         let list = List::new(items)
             .block(block)
-            .highlight_style(Style::default().fg(ACCENT).add_modifier(Modifier::REVERSED))
-            .highlight_symbol("› ");
+            .highlight_style(ui::selection());
         f.render_stateful_widget(list, area, &mut state);
     }
 
     fn draw_test(&self, f: &mut Frame, area: Rect) {
-        let block = ui::titled("Recognition test");
-        let inner = block.inner(area);
+        let block = ui::panel("Recognition test", true);
+        let inner = block.inner(area).inner(Margin {
+            horizontal: 1,
+            vertical: 1,
+        });
         f.render_widget(block, area);
 
         let pending = (self.pending_certainty - self.certainty).abs() > 1e-6;
         let thr_line = if pending {
             Line::from(vec![
-                Span::styled("Threshold (certainty)  ", Style::default().fg(DIM)),
-                Span::styled(format!("{:.1}", self.certainty), Style::default().bold()),
+                Span::styled("Threshold  ", Style::default().fg(DIM)),
+                Span::styled(format!("{:.1}", self.certainty), Style::default().fg(TEXT)),
                 Span::styled("  →  ", Style::default().fg(DIM)),
                 Span::styled(
                     format!("{:.1} (unsaved — s to save)", self.pending_certainty),
@@ -612,9 +619,9 @@ impl App {
             ])
         } else {
             Line::from(vec![
-                Span::styled("Threshold (certainty)  ", Style::default().fg(DIM)),
-                Span::styled(format!("{:.1}", self.certainty), Style::default().bold()),
-                Span::styled("   (lower = stricter)", Style::default().fg(DIM)),
+                Span::styled("Threshold  ", Style::default().fg(DIM)),
+                Span::styled(format!("{:.1}", self.certainty), Style::default().fg(TEXT)),
+                Span::styled("   lower = stricter", Style::default().fg(DIM)),
             ])
         };
 
@@ -673,8 +680,11 @@ impl App {
     }
 
     fn draw_doctor(&self, f: &mut Frame, area: Rect) {
-        let block = ui::titled("Doctor");
-        let inner = block.inner(area);
+        let block = ui::panel("Doctor", true);
+        let inner = block.inner(area).inner(Margin {
+            horizontal: 1,
+            vertical: 0,
+        });
         f.render_widget(block, area);
         let lines: Vec<Line> = self
             .checks
@@ -686,8 +696,8 @@ impl App {
                     Status::Fail => ("✗", BAD),
                 };
                 Line::from(vec![
-                    Span::styled(format!(" {glyph} "), Style::default().fg(color).bold()),
-                    Span::styled(format!("{:<28}", c.name), Style::default().bold()),
+                    Span::styled(format!("{glyph}  "), Style::default().fg(color).bold()),
+                    Span::styled(format!("{:<28}", c.name), Style::default().fg(TEXT)),
                     Span::styled(c.detail.clone(), Style::default().fg(DIM)),
                 ])
             })
@@ -700,7 +710,7 @@ impl App {
             // active label-entry field, with a block cursor
             Line::from(vec![
                 Span::styled(" label ▸ ", Style::default().fg(ACCENT).bold()),
-                Span::styled(buf.clone(), Style::default().fg(ACCENT)),
+                Span::styled(buf.clone(), Style::default().fg(TEXT)),
                 Span::styled(
                     "▏",
                     Style::default()
@@ -717,43 +727,36 @@ impl App {
         f.render_widget(Paragraph::new(line), area);
     }
 
-    fn draw_footer(&self, f: &mut Frame, area: Rect) {
-        if self.enrolling.is_some() {
-            let hints = &[("type", "label"), ("↵", "enroll"), ("Esc", "cancel")];
-            f.render_widget(
-                Paragraph::new(ui::footer(hints)).alignment(Alignment::Center),
-                area,
-            );
-            return;
-        }
-        let hints: &[(&str, &str)] = match self.tab {
-            Tab::Cameras => &[
-                ("↑↓", "select"),
-                ("↵", "set active"),
-                ("⇥", "tab"),
-                ("r", "refresh"),
-                ("q", "quit"),
-            ],
-            Tab::Models => &[
-                ("↑↓", "select"),
-                ("a", "add"),
-                ("d", "delete"),
-                ("⇥", "tab"),
-                ("q", "quit"),
-            ],
-            Tab::Test => &[
-                ("↵", "run"),
-                ("±", "threshold"),
-                ("s", "save"),
-                ("e", "detail"),
-                ("q", "quit"),
-            ],
-            Tab::Doctor => &[("↵", "re-check"), ("f", "fix"), ("⇥", "tab"), ("q", "quit")],
+    fn draw_help(&self, f: &mut Frame, area: Rect) {
+        let hints: &[(&str, &str)] = if self.enrolling.is_some() {
+            &[("type", "label"), ("↵", "enroll"), ("Esc", "cancel")]
+        } else {
+            match self.tab {
+                Tab::Cameras => &[
+                    ("↑↓", "select"),
+                    ("↵", "set active"),
+                    ("⇥", "tab"),
+                    ("r", "refresh"),
+                    ("q", "quit"),
+                ],
+                Tab::Models => &[
+                    ("↑↓", "select"),
+                    ("a", "add"),
+                    ("d", "delete"),
+                    ("⇥", "tab"),
+                    ("q", "quit"),
+                ],
+                Tab::Test => &[
+                    ("↵", "run"),
+                    ("± ", "threshold"),
+                    ("s", "save"),
+                    ("e", "detail"),
+                    ("q", "quit"),
+                ],
+                Tab::Doctor => &[("↵", "re-check"), ("f", "fix"), ("⇥", "tab"), ("q", "quit")],
+            }
         };
-        f.render_widget(
-            Paragraph::new(ui::footer(hints)).alignment(Alignment::Center),
-            area,
-        );
+        f.render_widget(Paragraph::new(ui::help_bar(hints)), area);
     }
 }
 
