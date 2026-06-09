@@ -22,11 +22,8 @@ const TICK: Duration = Duration::from_millis(200);
 /// ~0.35 ≈ 65% opacity.
 const UNFOCUSED_FADE: f64 = 0.35;
 
-/// Big "howdyctl" wordmark (ANSI Shadow figlet font).
+/// Big "howdy ctl" wordmark (ANSI Shadow figlet font).
 const BANNER: &str = include_str!("banner.txt");
-
-/// A small Face-ID style bracket-face logo shown above the wordmark.
-const FACE: &[&str] = &["⌜       ⌝", "  ◠   ◠", "    ‿", "⌞       ⌟"];
 
 #[derive(Clone, Copy, PartialEq)]
 enum Tab {
@@ -567,14 +564,7 @@ impl App {
     }
 
     fn draw_header(&self, f: &mut Frame, area: Rect) {
-        let [left, right] =
-            Layout::horizontal([Constraint::Min(0), Constraint::Length(22)]).areas(area);
-        let title = Line::from(vec![
-            Span::styled("◔‿◔", Style::default().fg(ACCENT)),
-            Span::styled("  howdyctl", Style::default().fg(ACCENT).bold()),
-        ]);
-        f.render_widget(Paragraph::new(title), left);
-
+        // just the user on the right; the wordmark below is the branding
         let who = if self.demo {
             format!("user: {} · demo", self.user)
         } else {
@@ -583,19 +573,13 @@ impl App {
         f.render_widget(
             Paragraph::new(Line::from(Span::styled(who, Style::default().fg(DIM))))
                 .alignment(Alignment::Right),
-            right,
+            area,
         );
     }
 
-    /// The big gradient wordmark + face logo, centred in the (otherwise empty) top half.
+    /// The big gradient wordmark, centred in the (otherwise empty) top half.
     fn draw_banner(&self, f: &mut Frame, area: Rect) {
         let mut lines: Vec<Line> = Vec::new();
-
-        // small Face-ID bracket logo, in aqua
-        for fl in FACE {
-            lines.push(Line::from(Span::styled(*fl, Style::default().fg(AQUA))));
-        }
-        lines.push(Line::from(""));
 
         // the wordmark, with a green → aqua → blue gradient across its width
         let width = BANNER
@@ -1041,12 +1025,8 @@ mod tests {
         for tab in Tab::ALL {
             app.tab = tab;
             let screen = render(&app);
-            // logo + the active tab's content are always on screen
-            assert!(
-                screen.contains("howdyctl"),
-                "logo missing on {}",
-                tab.label()
-            );
+            // the menu and the active tab's content are always on screen
+            assert!(screen.contains("Menu"), "menu missing on {}", tab.label());
             assert!(
                 screen.contains("Cameras"),
                 "tab bar missing on {}",
