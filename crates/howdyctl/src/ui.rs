@@ -3,7 +3,6 @@
 //! **Everforest Dark (medium)** palette.
 use ratatui::style::{Color, Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders};
 
 // ── Everforest Dark (medium) ────────────────────────────────────────────────
 // The UI is transparent (no background fill), so BG/SURFACE are kept only for
@@ -33,56 +32,30 @@ pub fn header(text: String) -> Line<'static> {
     Line::from(Span::styled(text, Style::default().fg(DIM).bold()))
 }
 
-/// A rounded block whose border is green when `focused`, dim otherwise.
-pub fn panel(title: &str, focused: bool) -> Block<'_> {
-    let border = if focused { ACCENT } else { BORDER };
-    Block::default()
-        .borders(Borders::ALL)
-        .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(border))
-        // transparent fill — no background, so borders render as unbroken lines
-        .title(Span::styled(
-            format!(" {title} "),
-            Style::default()
-                .fg(if focused { ACCENT } else { DIM })
-                .bold(),
-        ))
+/// A full-width horizontal rule. cosmic-term (and most terminals) render `─`
+/// solidly, unlike the vertical box lines, so we structure with these.
+pub fn rule(width: u16) -> Line<'static> {
+    Line::from(Span::styled(
+        "─".repeat(width as usize),
+        Style::default().fg(BORDER),
+    ))
 }
 
-/// The slim tab row plus an underline beneath the active tab (rendered into a
-/// 2-line area). `active` is the index into `names`.
-pub fn tab_bar(names: &[&str], active: usize) -> (Line<'static>, Line<'static>) {
-    let mut spans = Vec::new();
-    let mut underline_cols: Option<(usize, usize)> = None;
-    let mut col = 2usize; // leading indent
-    spans.push(Span::raw("  "));
+/// The slim tab row; the active tab is green + bold, the rest dim.
+pub fn tab_bar(names: &[&str], active: usize) -> Line<'static> {
+    let mut spans = vec![Span::raw("  ")];
     for (i, name) in names.iter().enumerate() {
         if i > 0 {
-            spans.push(Span::raw("   "));
-            col += 3;
+            spans.push(Span::raw("    "));
         }
-        if i == active {
-            underline_cols = Some((col, name.len()));
-            spans.push(Span::styled(
-                name.to_string(),
-                Style::default().fg(ACCENT).bold(),
-            ));
+        let style = if i == active {
+            Style::default().fg(ACCENT).bold()
         } else {
-            spans.push(Span::styled(name.to_string(), Style::default().fg(DIM)));
-        }
-        col += name.len();
+            Style::default().fg(DIM)
+        };
+        spans.push(Span::styled(name.to_string(), style));
     }
-
-    let underline = match underline_cols {
-        Some((start, len)) => {
-            let mut s = String::new();
-            s.push_str(&" ".repeat(start));
-            s.push_str(&"─".repeat(len));
-            Line::from(Span::styled(s, Style::default().fg(ACCENT)))
-        }
-        None => Line::from(""),
-    };
-    (Line::from(spans), underline)
+    Line::from(spans)
 }
 
 /// A footer of `key`/`description` hints, e.g. ` ↑↓ move   q quit `.
